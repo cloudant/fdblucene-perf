@@ -64,7 +64,6 @@ public final class CouchDBIndexer {
                                 buildDocument(null, jsonReader, doc);
                             }
                             jsonReader.endObject();
-                            System.out.println(doc);
                             writer.addDocument(doc);
                         } else {
                             jsonReader.skipValue();
