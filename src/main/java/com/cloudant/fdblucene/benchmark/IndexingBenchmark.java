@@ -21,6 +21,8 @@ import org.apache.lucene.util.LuceneTestCase;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Group;
+import org.openjdk.jmh.annotations.GroupThreads;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
@@ -42,12 +44,15 @@ import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.cloudant.fdblucene.FDBDirectory;
 
+
 public class IndexingBenchmark {
 
     @BenchmarkMode(Mode.Throughput)
     @Fork(1)
     @State(Scope.Benchmark)
-    @Threads(2)
+    @Threads(4)
+    @Warmup(iterations = 5, time = 10, timeUnit = TimeUnit.SECONDS)
+    @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
     @Timeout(time = 30, timeUnit = TimeUnit.MINUTES)
     @OutputTimeUnit(TimeUnit.SECONDS)
     public static abstract class AbstractIndexingBenchmark {
@@ -63,18 +68,24 @@ public class IndexingBenchmark {
         @Param({"true", "false"})
         private boolean bigDocs;
 
-
         public abstract Directory getDirectory(final Path path) throws IOException;
 
         @Benchmark
-        @Warmup(iterations = 5, time = 10, timeUnit = TimeUnit.SECONDS)
-        @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
+        @Group("index")
+        @GroupThreads(3)
         public long indexing() throws Exception {
             if (bigDocs) {
                 doc = docs.nextDoc();
             }
             idField.setStringValue("doc-" + counter.incrementAndGet());
             return writer.addDocument(doc);
+        }
+
+        @Benchmark
+        @Group("index")
+        @GroupThreads(1)
+        public long commit() throws Exception {
+            return writer.commit();
         }
 
         @Setup(Level.Iteration)
