@@ -119,10 +119,12 @@ public class IndexingBenchmark {
         }
 
         private Path generateTestPath() {
+            final String dir = System.getProperty("dir");
+            if (dir == null){
+                throw new Error("System property 'dir' not set.");
+            }
             final FileSystem fileSystem = FileSystems.getDefault();
-            final Path javaTempDir = fileSystem
-                    .getPath(System.getProperty("tempDir", System.getProperty("java.io.tmpdir")));
-            return javaTempDir.resolve("foo");
+            return fileSystem.getPath(dir);
         }
 
         private IndexWriterConfig indexWriterConfig() {
