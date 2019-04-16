@@ -3,6 +3,9 @@ package com.cloudant.fdblucene.couchdb;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -12,12 +15,19 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.lucene.codecs.lucene80.Lucene80Codec;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.document.StringField;
+import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.store.Directory;
 
+import com.apple.foundationdb.Database;
+import com.apple.foundationdb.FDB;
+import com.cloudant.fdblucene.FDBDirectory;
 import com.google.gson.stream.JsonReader;
 
 /**
@@ -25,6 +35,33 @@ import com.google.gson.stream.JsonReader;
  *
  */
 public final class CouchDBIndexer {
+
+    public static void main(String[] args) throws Exception {
+        if (args.length != 5) {
+            System.out.println("CouchDBIndexer: username password hostname dbname indexpath");
+        }
+        final CouchDBIndexer indexer = new CouchDBIndexer();
+
+        final IndexWriterConfig config = new IndexWriterConfig();
+        config.setUseCompoundFile(false);
+        config.setCodec(new Lucene80Codec());
+
+        final FileSystem fileSystem = FileSystems.getDefault();
+        final Path path = fileSystem.getPath(args[4]);
+
+        FDB.selectAPIVersion(600);
+        final Database db = FDB.instance().open();
+        try (final Directory dir = FDBDirectory.open(db,  path);
+                final IndexWriter writer = new IndexWriter(dir, config)) {
+
+            indexer.index(
+                    args[0],
+                    args[1],
+                    args[2],
+                    args[3],
+                    writer);
+        }
+    }
 
     public void index(
             final String username,
