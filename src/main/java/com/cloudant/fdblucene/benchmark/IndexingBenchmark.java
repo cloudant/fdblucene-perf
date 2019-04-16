@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -15,6 +16,8 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.NIOFSDirectory;
+import org.apache.lucene.util.LineFileDocs;
+import org.apache.lucene.util.LuceneTestCase;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Level;
@@ -47,6 +50,8 @@ public class IndexingBenchmark {
         private IndexWriter writer;
         private StringField idField;
         private AtomicLong counter = new AtomicLong();
+        private Random random;
+        private LineFileDocs docs;
 
         public abstract Directory getDirectory(final Path path) throws IOException;
 
@@ -54,6 +59,7 @@ public class IndexingBenchmark {
         @Warmup(iterations = 3, time = 5, timeUnit = TimeUnit.SECONDS)
         @Measurement(iterations = 2, time = 60, timeUnit = TimeUnit.SECONDS)
         public long indexing() throws Exception {
+            doc = docs.nextDoc();
             idField.setStringValue("doc-" + counter.incrementAndGet());
             return writer.addDocument(doc);
         }
@@ -64,7 +70,9 @@ public class IndexingBenchmark {
             dir = getDirectory(generateTestPath());
             cleanDirectory();
             writer = new IndexWriter(dir, config);
-            doc = new Document();
+            random = new Random();
+            docs = new LineFileDocs(random, LuceneTestCase.DEFAULT_LINE_DOCS_FILE);
+            doc = docs.nextDoc();
             idField = new StringField("_id", "", Store.YES);
             doc.add(idField);
             counter.set(0L);
