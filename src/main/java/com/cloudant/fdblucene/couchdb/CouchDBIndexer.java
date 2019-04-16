@@ -86,7 +86,7 @@ public final class CouchDBIndexer {
             out.add(new StringField(prefix, in.nextString(), Store.YES));
             break;
         case BOOLEAN:
-            out.add(new StringField(prefix, in.nextString(), Store.YES));
+            out.add(new StringField(prefix, Boolean.toString(in.nextBoolean()), Store.YES));
             break;
         case NUMBER:
             out.add(new DoublePoint(prefix, in.nextDouble()));
