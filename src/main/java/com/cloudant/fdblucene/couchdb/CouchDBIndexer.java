@@ -82,7 +82,11 @@ public final class CouchDBIndexer {
     private void buildDocument(final String prefix, final JsonReader in, final Document out) throws IOException {
         switch (in.peek()) {
         case STRING:
-            out.add(new StringField(prefix, in.nextString(), Store.YES));
+            if (prefix.startsWith("_")) {
+                out.add(new StringField(prefix, in.nextString(), Store.YES));
+            } else {
+                out.add(new TextField(prefix, in.nextString(), Store.YES));
+            }
             break;
         case BOOLEAN:
             out.add(new StringField(prefix, Boolean.toString(in.nextBoolean()), Store.YES));
