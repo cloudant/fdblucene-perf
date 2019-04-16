@@ -53,9 +53,9 @@ public class IndexingBenchmark {
         @Benchmark
         @Warmup(iterations = 3, time = 5, timeUnit = TimeUnit.SECONDS)
         @Measurement(iterations = 2, time = 60, timeUnit = TimeUnit.SECONDS)
-        public void indexing() throws Exception {
+        public long indexing() throws Exception {
             idField.setStringValue("doc-" + counter.incrementAndGet());
-            writer.addDocument(doc);
+            return writer.addDocument(doc);
         }
 
         @Setup(Level.Iteration)
