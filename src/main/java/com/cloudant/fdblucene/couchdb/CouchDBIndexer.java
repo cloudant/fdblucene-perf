@@ -61,7 +61,7 @@ public final class CouchDBIndexer {
                             final Document doc = new Document();
                             jsonReader.beginObject();
                             while (jsonReader.hasNext()) {
-                                buildDocument("", jsonReader, doc);
+                                buildDocument(null, jsonReader, doc);
                             }
                             jsonReader.endObject();
                             System.out.println(doc);
@@ -107,7 +107,7 @@ public final class CouchDBIndexer {
             break;
         case NAME:
             final String name = in.nextName();
-            buildDocument(String.format("%s.%s",  prefix, name), in, out);
+            buildDocument(prefix == null ? name : String.format("%s.%s",  prefix, name), in, out);
             break;
         default:
             in.skipValue();
