@@ -17,7 +17,6 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.NIOFSDirectory;
 import org.apache.lucene.util.LineFileDocs;
-import org.apache.lucene.util.LuceneTestCase;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -65,7 +64,6 @@ public class IndexingBenchmark {
         @Warmup(iterations = 5, time = 10, timeUnit = TimeUnit.SECONDS)
         @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
         public long indexing() throws Exception {
-            doc = docs.nextDoc();
             idField.setStringValue("doc-" + counter.incrementAndGet());
             return writer.addDocument(doc);
         }
@@ -77,8 +75,7 @@ public class IndexingBenchmark {
             cleanDirectory();
             writer = new IndexWriter(dir, config);
             random = new Random();
-            docs = new LineFileDocs(random, LuceneTestCase.DEFAULT_LINE_DOCS_FILE);
-            doc = docs.nextDoc();
+            doc = new Document();
             idField = new StringField("_id", "", Store.YES);
             doc.add(idField);
             counter.set(0L);
