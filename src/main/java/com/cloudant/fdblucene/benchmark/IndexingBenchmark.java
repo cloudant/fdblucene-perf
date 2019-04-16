@@ -51,8 +51,8 @@ public class IndexingBenchmark {
         public abstract Directory getDirectory(final Path path) throws IOException;
 
         @Benchmark
-        @Warmup(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
-        @Measurement(iterations = 3, time = 60, timeUnit = TimeUnit.SECONDS)
+        @Warmup(iterations = 3, time = 5, timeUnit = TimeUnit.SECONDS)
+        @Measurement(iterations = 2, time = 60, timeUnit = TimeUnit.SECONDS)
         public void indexing() throws Exception {
             idField.setStringValue("doc-" + counter.incrementAndGet());
             writer.addDocument(doc);
