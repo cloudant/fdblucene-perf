@@ -37,7 +37,7 @@ import com.cloudant.fdblucene.FDBDirectory;
 
 public class IndexingBenchmark {
 
-    @BenchmarkMode(Mode.All)
+    @BenchmarkMode(Mode.Throughput)
     @State(Scope.Benchmark)
     @OutputTimeUnit(TimeUnit.SECONDS)
     public static abstract class AbstractIndexingBenchmark {
