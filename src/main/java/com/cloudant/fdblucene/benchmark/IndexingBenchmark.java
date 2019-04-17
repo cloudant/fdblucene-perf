@@ -21,8 +21,6 @@ import org.apache.lucene.util.LuceneTestCase;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.Group;
-import org.openjdk.jmh.annotations.GroupThreads;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
@@ -32,7 +30,6 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
-import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Timeout;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
@@ -50,7 +47,6 @@ public class IndexingBenchmark {
     @BenchmarkMode(Mode.Throughput)
     @Fork(1)
     @State(Scope.Benchmark)
-    @Threads(4)
     @Warmup(iterations = 5, time = 10, timeUnit = TimeUnit.SECONDS)
     @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
     @Timeout(time = 30, timeUnit = TimeUnit.MINUTES)
@@ -71,21 +67,12 @@ public class IndexingBenchmark {
         public abstract Directory getDirectory(final Path path) throws IOException;
 
         @Benchmark
-        @Group("index")
-        @GroupThreads(3)
         public long indexing() throws Exception {
             if (bigDocs) {
                 doc = docs.nextDoc();
             }
             idField.setStringValue("doc-" + counter.incrementAndGet());
             return writer.addDocument(doc);
-        }
-
-        @Benchmark
-        @Group("index")
-        @GroupThreads(1)
-        public long commit() throws Exception {
-            return writer.commit();
         }
 
         @Setup(Level.Iteration)
