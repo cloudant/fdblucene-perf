@@ -53,6 +53,10 @@ import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.cloudant.fdblucene.FDBDirectory;
 
+import org.apache.lucene.index.IndexableField;
+import java.util.List;
+import java.util.ArrayList;
+
 
 public class SearchBenchmark {
 
@@ -60,8 +64,8 @@ public class SearchBenchmark {
     @Fork(1)
     @State(Scope.Benchmark)
     @Threads(1)
-    @Warmup(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
-    @Measurement(iterations = 3, time = 3, timeUnit = TimeUnit.MINUTES)
+    @Warmup(iterations = 3, time = 30, timeUnit = TimeUnit.SECONDS)
+    @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
     @Timeout(time = 5, timeUnit = TimeUnit.MINUTES)
     @OutputTimeUnit(TimeUnit.SECONDS)
 
@@ -77,9 +81,9 @@ public class SearchBenchmark {
         private Random random;
         private LineFileDocs docs;
         private int docsToIndex = 100;
-
-        @Param({"true", "false"})
-        private boolean bigDocs;
+        private List<String> searchTermList = new ArrayList<String>();
+        private int topNDocs = 50;
+        private int maxSearchTerms = 10000;
 
         public abstract Directory getDirectory(final Path path) throws IOException;
 
@@ -87,13 +91,12 @@ public class SearchBenchmark {
         @Group("search")
         @GroupThreads(1)
         public void search() throws Exception {
-            TopDocs hits = searcher.search(new TermQuery(new Term("foo", "bar")), 10);
+            int randomSearchPosition = random.nextInt(searchTermList.size());
+            String term = searchTermList.get(randomSearchPosition);
+            // we don't actually care about the number of hits
+            searcher.search(new TermQuery(new Term("body", term)), topNDocs);
         }
 
-
-        @Setup(Level.Iteration)
-        // We should move this to Level.Trial, but so far
-        // Level.Trial is only allowed once?
         public void setup() throws Exception {
             final IndexWriterConfig config = indexWriterConfig();
             dir = getDirectory(generateTestPath());
@@ -102,19 +105,31 @@ public class SearchBenchmark {
             random = new Random();
             for (int i = 0; i < docsToIndex; i++) {
                 docs = new LineFileDocs(random, LuceneTestCase.DEFAULT_LINE_DOCS_FILE);
-               if (bigDocs) {
-                    doc = docs.nextDoc();
-                } else {
-                    doc = new Document();
+                doc = docs.nextDoc();
+                // Look through the body's terms, grab a String term, store it
+                // so that it can be randomly chosen for search later on
+                String[] body = doc.getValues("body");
+                String[] terms = null;
+                if(body.length > 0) {
+                    terms = body[0].split("\\s+");
                 }
+                if(terms !=null && searchTermList.size() < maxSearchTerms) {
+                    int randomTermPosition = random.nextInt(terms.length);
+                    searchTermList.add(terms[randomTermPosition]);
+                }
+
                 idField = new StringField("_id", "", Store.YES);
                 idField.setStringValue("doc-" + counter.incrementAndGet());
                 doc.add(idField);
                 writer.addDocument(doc);
             }
             writer.commit();
+            System.out.println("Commited Indexing");
             writer.close();
+        }
 
+        @Setup(Level.Iteration)
+        public void createReader() throws Exception {
             reader = DirectoryReader.open(dir);
             searcher = new IndexSearcher(reader);
         }
@@ -122,7 +137,6 @@ public class SearchBenchmark {
         @TearDown(Level.Iteration)
         public void teardown() throws Exception {
             reader.close();
-            cleanDirectory();
         }
 
         private void cleanDirectory() throws IOException {
@@ -151,13 +165,15 @@ public class SearchBenchmark {
     public static class FDBSearchBenchmark extends AbstractSearchBenchmark {
 
         @Setup(Level.Trial)
-        public void startFDBNetworking() {
+        public void startFDBNetworking() throws Exception {
             FDB.selectAPIVersion(600);
             db = FDB.instance().open();
+            super.setup();
         }
 
         @TearDown(Level.Trial)
-        public void closeFDB() {
+        public void closeFDB() throws Exception {
+            super.cleanDirectory();
             db.close();
         }
 
@@ -168,6 +184,11 @@ public class SearchBenchmark {
     }
 
     public static class NIOFSIndexingBenchmark extends AbstractSearchBenchmark {
+
+        @Setup(Level.Trial)
+        public void setupNIOS() throws Exception{
+            super.setup();
+        }
 
         @Override
         public Directory getDirectory(final Path path) throws IOException {
