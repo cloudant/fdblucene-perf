@@ -117,7 +117,6 @@ public class SearchBenchmark {
                 int fooval  = i%2;
 
                 // dynamic fields (only 2)
-                System.out.println("foorand"+fooval);
                 doc.add(new TextField("foorand"+fooval, "we are the champions of the world-"+i, Store.YES));
 
                 // fields are known beforehand
