@@ -54,6 +54,7 @@ import com.apple.foundationdb.FDB;
 import com.cloudant.fdblucene.FDBDirectory;
 
 import org.apache.lucene.index.IndexableField;
+import org.apache.lucene.document.TextField;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -65,7 +66,7 @@ public class SearchBenchmark {
     @State(Scope.Benchmark)
     @Threads(1)
     @Warmup(iterations = 3, time = 30, timeUnit = TimeUnit.SECONDS)
-    @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
+    @Measurement(iterations = 3, time = 3, timeUnit = TimeUnit.MINUTES)
     @Timeout(time = 5, timeUnit = TimeUnit.MINUTES)
     @OutputTimeUnit(TimeUnit.SECONDS)
 
@@ -82,19 +83,27 @@ public class SearchBenchmark {
         private LineFileDocs docs;
         private int docsToIndex = 100;
         private List<String> searchTermList = new ArrayList<String>();
-        private int topNDocs = 50;
+        private int topNDocs = 1;
         private int maxSearchTerms = 10000;
 
         public abstract Directory getDirectory(final Path path) throws IOException;
 
         @Benchmark
-        @Group("search")
+        @Group("searchrand")
         @GroupThreads(1)
-        public void search() throws Exception {
-            int randomSearchPosition = random.nextInt(searchTermList.size());
-            String term = searchTermList.get(randomSearchPosition);
-            // we don't actually care about the number of hits
-            searcher.search(new TermQuery(new Term("body", term)), topNDocs);
+        public void searchRandom() throws Exception {
+            int randomSearchPosition = random.nextInt(2);
+            searcher.search(new TermQuery(new Term("foorand"+randomSearchPosition, "champions")), topNDocs);
+        }
+
+        @Benchmark
+        @Group("searchfixed")
+        @GroupThreads(1)
+        public void searchFixed() throws Exception {
+            // Even though the search parameter is random, the field names
+            // were known before-hand, mainly foo0 and foo1
+            int randomSearchPosition = random.nextInt(2);
+            searcher.search(new TermQuery(new Term("foo"+randomSearchPosition, "champions")), topNDocs);
         }
 
         public void setup() throws Exception {
@@ -104,19 +113,16 @@ public class SearchBenchmark {
             writer = new IndexWriter(dir, config);
             random = new Random();
             for (int i = 0; i < docsToIndex; i++) {
-                docs = new LineFileDocs(random, LuceneTestCase.DEFAULT_LINE_DOCS_FILE);
-                doc = docs.nextDoc();
-                // Look through the body's terms, grab a String term, store it
-                // so that it can be randomly chosen for search later on
-                String[] body = doc.getValues("body");
-                String[] terms = null;
-                if(body.length > 0) {
-                    terms = body[0].split("\\s+");
-                }
-                if(terms !=null && searchTermList.size() < maxSearchTerms) {
-                    int randomTermPosition = random.nextInt(terms.length);
-                    searchTermList.add(terms[randomTermPosition]);
-                }
+                doc = new Document();
+                int fooval  = i%2;
+
+                // dynamic fields (only 2)
+                System.out.println("foorand"+fooval);
+                doc.add(new TextField("foorand"+fooval, "we are the champions of the world-"+i, Store.YES));
+
+                // fields are known beforehand
+                doc.add(new TextField("foo"+0, "we are the champions of the world-"+i, Store.YES));
+                doc.add(new TextField("foo"+1, "we are the champions of the world-"+i, Store.YES));
 
                 idField = new StringField("_id", "", Store.YES);
                 idField.setStringValue("doc-" + counter.incrementAndGet());
@@ -124,7 +130,6 @@ public class SearchBenchmark {
                 writer.addDocument(doc);
             }
             writer.commit();
-            System.out.println("Commited Indexing");
             writer.close();
         }
 
