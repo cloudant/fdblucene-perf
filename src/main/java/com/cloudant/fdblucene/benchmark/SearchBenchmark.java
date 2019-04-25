@@ -25,6 +25,11 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.NIOFSDirectory;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
+import org.apache.lucene.search.SortField.Type;
+import org.apache.lucene.document.SortedDocValuesField;
+import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.LineFileDocs;
 import org.apache.lucene.util.LuceneTestCase;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -93,8 +98,10 @@ public class SearchBenchmark {
         public void search() throws Exception {
             int randomSearchPosition = random.nextInt(searchTermList.size());
             String term = searchTermList.get(randomSearchPosition);
+            Sort sort = new Sort(SortField.FIELD_SCORE,
+                    new SortField("_id", Type.STRING));
             // we don't actually care about the number of hits
-            searcher.search(new TermQuery(new Term("body", term)), topNDocs);
+            searcher.search(new TermQuery(new Term("body", term)), topNDocs, sort);
         }
 
         public void setup() throws Exception {
@@ -117,10 +124,8 @@ public class SearchBenchmark {
                     int randomTermPosition = random.nextInt(terms.length);
                     searchTermList.add(terms[randomTermPosition]);
                 }
-
-                idField = new StringField("_id", "", Store.YES);
-                idField.setStringValue("doc-" + counter.incrementAndGet());
-                doc.add(idField);
+                doc.add(new SortedDocValuesField ("_id",
+                        new BytesRef("doc-"  + counter.incrementAndGet())));
                 writer.addDocument(doc);
             }
             writer.commit();
