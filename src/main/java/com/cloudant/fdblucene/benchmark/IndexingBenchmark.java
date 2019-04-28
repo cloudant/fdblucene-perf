@@ -26,7 +26,6 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
-import org.openjdk.jmh.annotations.Timeout;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
@@ -43,9 +42,8 @@ public class IndexingBenchmark {
     @BenchmarkMode(Mode.Throughput)
     @Fork(1)
     @State(Scope.Benchmark)
-    @Warmup(iterations = 5, time = 10, timeUnit = TimeUnit.SECONDS)
-    @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
-    @Timeout(time = 30, timeUnit = TimeUnit.MINUTES)
+    @Warmup(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
+    @Measurement(iterations = 3, time = 2, timeUnit = TimeUnit.MINUTES)
     @OutputTimeUnit(TimeUnit.SECONDS)
     public static abstract class AbstractIndexingBenchmark {
         protected Database db;
