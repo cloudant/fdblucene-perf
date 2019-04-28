@@ -52,12 +52,6 @@ public class IndexingBenchmark {
         private IndexWriter writer;
         private Random random;
 
-        @Param({ "64", "128", "256", "512", "1024", "4096" })
-        protected int pageSize;
-
-        @Param({ "1", "2", "5", "10", "100" })
-        protected int txnMultiplier;
-
         public abstract Directory getDirectory(final Path path) throws IOException;
 
         @Benchmark
@@ -106,6 +100,12 @@ public class IndexingBenchmark {
     }
 
     public static class FDBIndexingBenchmark extends AbstractIndexingBenchmark {
+
+        @Param({ "64", "128", "256", "512", "1024", "4096" })
+        protected int pageSize;
+
+        @Param({ "1", "2", "5", "10", "100" })
+        protected int txnMultiplier;
 
         @Setup(Level.Trial)
         public void startFDBNetworking() {
