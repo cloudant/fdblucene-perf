@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -34,6 +36,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
+import com.apple.foundationdb.directory.DirectoryLayer;
+import com.apple.foundationdb.directory.DirectorySubspace;
 import com.cloudant.fdblucene.FDBDirectory;
 
 
@@ -101,11 +105,15 @@ public class IndexingBenchmark {
 
     public static class FDBIndexingBenchmark extends AbstractIndexingBenchmark {
 
+        private final DirectoryLayer dirLayer = DirectoryLayer.getDefault();
+
         @Param({ "64", "128", "256", "512", "1024", "4096" })
         protected int pageSize;
 
         @Param({ "1", "2", "5", "10", "100" })
         protected int txnMultiplier;
+
+        private DirectorySubspace dir;
 
         @Setup(Level.Trial)
         public void startFDBNetworking() {
@@ -116,11 +124,21 @@ public class IndexingBenchmark {
         @TearDown(Level.Trial)
         public void closeFDB() {
             db.close();
+            dir.remove(db);
         }
 
         @Override
         public Directory getDirectory(final Path path) throws IOException {
-            return FDBDirectory.open(db, path, pageSize, pageSize * txnMultiplier);
+            dir = dirLayer.create(db, pathAsList(path)).join();
+            return FDBDirectory.open(db, dir, pageSize, pageSize * txnMultiplier);
+        }
+
+        private static List<String> pathAsList(final Path path) {
+            final List<String> result = new ArrayList<String>();
+            for (final Path p : path) {
+                result.add(p.toString());
+            }
+            return result;
         }
 
     }
