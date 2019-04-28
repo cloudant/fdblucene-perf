@@ -68,7 +68,6 @@ public class IndexingBenchmark {
         public void setup() throws Exception {
             final IndexWriterConfig config = indexWriterConfig();
             dir = getDirectory(generateTestPath());
-            cleanDirectory();
             writer = new IndexWriter(dir, config);
             random = new Random();
             lineFileDocs = new LineFileDocs(random);
@@ -77,13 +76,6 @@ public class IndexingBenchmark {
         @TearDown(Level.Iteration)
         public void teardown() throws Exception {
             writer.close();
-            cleanDirectory();
-        }
-
-        private void cleanDirectory() throws IOException {
-            for (final String name : dir.listAll()) {
-                dir.deleteFile(name);
-            }
         }
 
         private Path generateTestPath() {
@@ -105,15 +97,11 @@ public class IndexingBenchmark {
 
     public static class FDBIndexingBenchmark extends AbstractIndexingBenchmark {
 
-        private final DirectoryLayer dirLayer = DirectoryLayer.getDefault();
-
         @Param({ "64", "128", "256", "512", "1024", "4096" })
         protected int pageSize;
 
         @Param({ "1", "2", "5", "10", "100" })
         protected int txnMultiplier;
-
-        private DirectorySubspace dir;
 
         @Setup(Level.Trial)
         public void startFDBNetworking() {
@@ -124,12 +112,14 @@ public class IndexingBenchmark {
         @TearDown(Level.Trial)
         public void closeFDB() {
             db.close();
-            dir.remove(db);
         }
 
         @Override
-        public Directory getDirectory(final Path path) throws IOException {
-            dir = dirLayer.create(db, pathAsList(path)).join();
+        public Directory getDirectory(final Path path0) throws IOException {
+            List<String> path1 = pathAsList(path0);
+            DirectoryLayer dirLayer = DirectoryLayer.getDefault();
+            dirLayer.removeIfExists(db, path1).join();
+            DirectorySubspace dir = dirLayer.create(db, path1).join();
             return FDBDirectory.open(db, dir, pageSize, pageSize * txnMultiplier);
         }
 
@@ -147,7 +137,11 @@ public class IndexingBenchmark {
 
         @Override
         public Directory getDirectory(final Path path) throws IOException {
-            return new NIOFSDirectory(path);
+            final Directory result = new NIOFSDirectory(path);
+            for (final String name : result.listAll()) {
+                result.deleteFile(name);
+            }
+            return result;
         }
 
     }
