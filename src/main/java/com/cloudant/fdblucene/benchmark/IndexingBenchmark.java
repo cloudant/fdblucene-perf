@@ -6,18 +6,14 @@ import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.lucene.codecs.lucene80.Lucene80Codec;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field.Store;
-import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.NIOFSDirectory;
 import org.apache.lucene.util.LineFileDocs;
-import org.apache.lucene.util.LuceneTestCase;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -54,24 +50,21 @@ public class IndexingBenchmark {
     public static abstract class AbstractIndexingBenchmark {
         protected Database db;
         private Directory dir;
-        private Document doc;
+        private LineFileDocs lineFileDocs;
         private IndexWriter writer;
-        private StringField idField;
-        private AtomicLong counter = new AtomicLong();
         private Random random;
-        private LineFileDocs docs;
 
-        @Param({"true", "false"})
-        private boolean bigDocs;
+        @Param({ "64", "128", "256", "512", "1024", "4096" })
+        protected int pageSize;
+
+        @Param({ "1", "2", "5", "10", "100" })
+        protected int txnMultiplier;
 
         public abstract Directory getDirectory(final Path path) throws IOException;
 
         @Benchmark
-        public long indexing() throws Exception {
-            if (bigDocs) {
-                doc = docs.nextDoc();
-            }
-            idField.setStringValue("doc-" + counter.incrementAndGet());
+        public long addDocument() throws Exception {
+            final Document doc = lineFileDocs.nextDoc();
             return writer.addDocument(doc);
         }
 
@@ -82,15 +75,7 @@ public class IndexingBenchmark {
             cleanDirectory();
             writer = new IndexWriter(dir, config);
             random = new Random();
-            docs = new LineFileDocs(random, LuceneTestCase.DEFAULT_LINE_DOCS_FILE);
-            if (bigDocs) {
-                doc = docs.nextDoc();
-            } else {
-                doc = new Document();
-            }
-            idField = new StringField("_id", "", Store.YES);
-            doc.add(idField);
-            counter.set(0L);
+            lineFileDocs = new LineFileDocs(random);
         }
 
         @TearDown(Level.Iteration)
@@ -137,7 +122,7 @@ public class IndexingBenchmark {
 
         @Override
         public Directory getDirectory(final Path path) throws IOException {
-            return FDBDirectory.open(db, path);
+            return FDBDirectory.open(db, path, pageSize, pageSize * txnMultiplier);
         }
 
     }
