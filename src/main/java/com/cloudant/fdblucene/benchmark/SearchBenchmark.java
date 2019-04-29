@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.Collection;
 
 import org.apache.lucene.codecs.lucene80.Lucene80Codec;
 import org.apache.lucene.document.Document;
@@ -32,6 +33,10 @@ import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.LineFileDocs;
 import org.apache.lucene.util.LuceneTestCase;
+import org.apache.lucene.search.CachingCollector;
+import org.apache.lucene.search.grouping.FirstPassGroupingCollector;
+import org.apache.lucene.search.grouping.TermGroupSelector;
+
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -53,6 +58,7 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
+import org.openjdk.jmh.infra.Blackhole;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
@@ -95,18 +101,34 @@ public class SearchBenchmark {
         @Benchmark
         @Group("search")
         @GroupThreads(1)
-        public void search() throws Exception {
+        public void search(Blackhole blackhole) throws Exception {
             int randomSearchPosition = random.nextInt(searchTermList.size());
             String term = searchTermList.get(randomSearchPosition);
-            Sort sort = new Sort(SortField.FIELD_SCORE,
+            Sort groupSort = new Sort(SortField.FIELD_SCORE,
                     new SortField("_id", Type.STRING));
-            // we don't actually care about the number of hits
-            searcher.search(new TermQuery(new Term("body", term)), topNDocs, sort);
+            final int topNGroups = 20;
+
+            FirstPassGroupingCollector c1 =
+                    new FirstPassGroupingCollector(new TermGroupSelector("author"), groupSort, topNGroups);
+
+            boolean cacheScores = true;
+            double maxCacheRAMMB = 4.0;
+            CachingCollector cachedCollector = CachingCollector.create(c1, cacheScores, maxCacheRAMMB);
+            searcher.search(new TermQuery(new Term("body", term)), cachedCollector);
+
+            Collection topGroups = c1.getTopGroups(0);
+
+            if (topGroups == null) {
+                // No groups matched
+                return;
+            }
+            blackhole.consume(topGroups.size());
         }
 
         public void setup() throws Exception {
             final IndexWriterConfig config = indexWriterConfig();
             dir = getDirectory(generateTestPath());
+            final String GROUP_FIELD = "author";
             cleanDirectory();
             writer = new IndexWriter(dir, config);
             random = new Random();
@@ -126,6 +148,8 @@ public class SearchBenchmark {
                 }
                 doc.add(new SortedDocValuesField ("_id",
                         new BytesRef("doc-"  + counter.incrementAndGet())));
+                doc.add(new SortedDocValuesField (GROUP_FIELD,
+                        new BytesRef(random.nextInt(terms.length))));
                 writer.addDocument(doc);
             }
             writer.commit();
