@@ -48,7 +48,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
            </dependency>
            <dependency>
              <groupId>org.apache.lucene</groupId>
-             <artifactId>lucene-test-framework</artifactId>
+             <artifactId>lucene-benchmark</artifactId>
              <version>${lucene.version}</version>
            </dependency>
            <dependency>
@@ -95,7 +95,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
            <!--
                Java source/target to use for compilation.
            -->
-           <javac.target>1.8</javac.target>
+           <javac.target>12</javac.target>
 
            <!--
                Name of the benchmark Uber-JAR to generate.
