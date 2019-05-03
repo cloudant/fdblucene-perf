@@ -43,10 +43,10 @@ public abstract class SearchSetup {
     public AtomicLong counter = new AtomicLong();
     public Random random;
     public LineFileDocs docs;
-    public int docsToIndex = 100;
+    public int docsToIndex = 100000;
     public List<String> searchTermList = new ArrayList<String>();
     public int topNDocs = 50;
-    public int maxSearchTerms = 10;
+    public int maxSearchTerms = 1000;
 
     public abstract Directory getDirectory(final Path path) throws IOException;
 
