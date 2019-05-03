@@ -10,14 +10,16 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.lucene.codecs.lucene80.Lucene80Codec;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.document.Field.Store;
+import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.StringField;
+import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.NIOFSDirectory;
-import org.apache.lucene.util.LineFileDocs;
-import org.apache.lucene.util.LuceneTestCase;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -47,31 +49,40 @@ public class IndexingBenchmark {
     @BenchmarkMode(Mode.Throughput)
     @Fork(1)
     @State(Scope.Benchmark)
-    @Warmup(iterations = 5, time = 10, timeUnit = TimeUnit.SECONDS)
-    @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
+    @Warmup(iterations = 3, time = 5, timeUnit = TimeUnit.SECONDS)
+    @Measurement(iterations = 3, time = 2, timeUnit = TimeUnit.MINUTES)
     @Timeout(time = 30, timeUnit = TimeUnit.MINUTES)
     @OutputTimeUnit(TimeUnit.SECONDS)
     public static abstract class AbstractIndexingBenchmark {
         protected Database db;
         private Directory dir;
         private Document doc;
+        private IndexableField[] fields;
         private IndexWriter writer;
-        private StringField idField;
-        private AtomicLong counter = new AtomicLong();
         private Random random;
-        private LineFileDocs docs;
+        private AtomicLong counter = new AtomicLong();
 
-        @Param({"true", "false"})
-        private boolean bigDocs;
+        @Param({ "1", "2", "5", "10", "50", "100", "200" })
+        public int fieldCount;
 
         public abstract Directory getDirectory(final Path path) throws IOException;
 
         @Benchmark
         public long indexing() throws Exception {
-            if (bigDocs) {
-                doc = docs.nextDoc();
+            ((StringField) fields[0]).setStringValue("doc-" + counter.getAndIncrement());
+            for (int i = 1; i < fieldCount; i++) {
+                switch (i % 3) {
+                case 0:
+                    // Stick with original text.
+                    break;
+                case 1:
+                    ((IntPoint) fields[i]).setIntValue(random.nextInt());
+                    break;
+                case 2:
+                    ((DoublePoint) fields[i]).setDoubleValue(random.nextDouble());
+                    break;
+                }
             }
-            idField.setStringValue("doc-" + counter.incrementAndGet());
             return writer.addDocument(doc);
         }
 
@@ -82,14 +93,27 @@ public class IndexingBenchmark {
             cleanDirectory();
             writer = new IndexWriter(dir, config);
             random = new Random();
-            docs = new LineFileDocs(random, LuceneTestCase.DEFAULT_LINE_DOCS_FILE);
-            if (bigDocs) {
-                doc = docs.nextDoc();
-            } else {
-                doc = new Document();
+            doc = new Document();
+            fields = new IndexableField[fieldCount];
+            fields[0] = new StringField("_id", "", Store.YES);
+            for (int i = 1; i < fieldCount; i++) {
+                final String fieldName = "f-" + i;
+                switch (i % 3) {
+                case 0:
+                    fields[i] = new TextField(fieldName, "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+                            Store.NO);
+                    break;
+                case 1:
+                    fields[i] = new IntPoint(fieldName, random.nextInt());
+                    break;
+                case 2:
+                    fields[i] = new DoublePoint(fieldName, random.nextDouble());
+                    break;
+                }
             }
-            idField = new StringField("_id", "", Store.YES);
-            doc.add(idField);
+            for (int i = 0; i < fieldCount; i++) {
+                doc.add(fields[i]);
+            }
             counter.set(0L);
         }
 
@@ -100,8 +124,12 @@ public class IndexingBenchmark {
         }
 
         private void cleanDirectory() throws IOException {
-            for (final String name : dir.listAll()) {
-                dir.deleteFile(name);
+            if (dir instanceof FDBDirectory) {
+                ((FDBDirectory) dir).delete();
+            } else {
+                for (final String name : dir.listAll()) {
+                    dir.deleteFile(name);
+                }
             }
         }
 
