@@ -21,6 +21,8 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.LineFileDocs;
 import org.apache.lucene.util.LuceneTestCase;
+import org.apache.lucene.document.SortedDocValuesField;
+import org.apache.lucene.util.BytesRef;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Level;
@@ -30,6 +32,7 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 
 import com.apple.foundationdb.Database;
+import org.openjdk.jmh.runner.FailureAssistException;
 
 @State(Scope.Benchmark)
 public abstract class SearchSetup {
@@ -47,6 +50,7 @@ public abstract class SearchSetup {
     public List<String> searchTermList = new ArrayList<String>();
     public int topNDocs = 50;
     public int maxSearchTerms = 1000;
+    public BenchmarkUtil.SearchTypeEnum searchType = BenchmarkUtil.SearchTypeEnum.Default;
 
     public abstract Directory getDirectory(final Path path) throws IOException;
 
@@ -71,9 +75,16 @@ public abstract class SearchSetup {
                 searchTermList.add(terms[randomTermPosition]);
             }
 
-            idField = new StringField("_id", "", Store.YES);
-            idField.setStringValue("doc-" + counter.incrementAndGet());
-            doc.add(idField);
+            if (searchType == BenchmarkUtil.SearchTypeEnum.Default) {
+                idField = new StringField("_id", "", Store.YES);
+                idField.setStringValue("doc-" + counter.incrementAndGet());
+                doc.add(idField);
+            } else if (searchType == BenchmarkUtil.SearchTypeEnum.BySort) {
+                doc.add(new SortedDocValuesField ("_id",
+                        new BytesRef("doc-"  + counter.incrementAndGet())));
+            } else {
+                throw new IllegalArgumentException();
+            }
             writer.addDocument(doc);
         }
         writer.commit();
@@ -112,5 +123,13 @@ public abstract class SearchSetup {
         config.setUseCompoundFile(false);
         config.setCodec(new Lucene80Codec());
         return config;
+    }
+
+    protected void setSearchType(BenchmarkUtil.SearchTypeEnum searchType) {
+        this.searchType = searchType;
+    }
+
+    protected BenchmarkUtil.SearchTypeEnum getSearchType() {
+        return searchType;
     }
 }
