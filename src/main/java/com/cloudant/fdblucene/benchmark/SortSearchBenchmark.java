@@ -4,6 +4,9 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
+import org.apache.lucene.search.SortField.Type;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -19,17 +22,18 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Level;
+import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-public class BasicSearchBenchmark {
+public class SortSearchBenchmark {
 
     @State(Scope.Benchmark)
-    public static class FDBSearchBenchmark {
+    public static class FDBSortSearchBenchmark {
 
-        protected FDBSearchSetup fdbSetup;
+        private FDBSearchSetup fdbSetup;
 
         @BenchmarkMode(Mode.Throughput)
         @Fork(1)
@@ -38,26 +42,31 @@ public class BasicSearchBenchmark {
         @Timeout(time = 5, timeUnit = TimeUnit.MINUTES)
         @OutputTimeUnit(TimeUnit.SECONDS)
         @Benchmark
-        @Group("searchFDB")
+        @Group("searchFDBBySort")
         @GroupThreads(1)
-        public void searchFDB() throws Exception {
+        public void searchFDBBySort(Blackhole blackhole) throws Exception {
             int randomSearchPosition = fdbSetup.random.nextInt(fdbSetup.searchTermList.size());
             String term = fdbSetup.searchTermList.get(randomSearchPosition);
+            Sort sort = new Sort(SortField.FIELD_SCORE,
+                    new SortField("_id", Type.STRING));
             // we don't actually care about the number of hits
-            fdbSetup.searcher.search(new TermQuery(new Term("body", term)), fdbSetup.topNDocs);
+            blackhole.consume(fdbSetup.searcher.search(
+                    new TermQuery(new Term("body", term)), fdbSetup.topNDocs, sort));
         }
 
         @Setup(Level.Trial)
         public void setup() throws Exception {
             fdbSetup = new FDBSearchSetup();
+            fdbSetup.setSearchType(BenchmarkUtil.SearchTypeEnum.BySort);
             fdbSetup.startFDBNetworking();
             fdbSetup.createReader();
         }
     }
 
     @State(Scope.Benchmark)
-    public static class NioSearchBenchmark {
-        protected NIOSSearchSetup nioSetup;
+    public static class NioSortSearchBenchmark {
+
+        private NIOSSearchSetup nioSetup;
 
         @BenchmarkMode(Mode.Throughput)
         @Fork(1)
@@ -66,26 +75,31 @@ public class BasicSearchBenchmark {
         @Timeout(time = 5, timeUnit = TimeUnit.MINUTES)
         @OutputTimeUnit(TimeUnit.SECONDS)
         @Benchmark
-        @Group("searchNIOS")
+        @Group("searchNIOSBySort")
         @GroupThreads(1)
-        public void searchNIOS() throws Exception {
+        public void searchNIOSBySort(Blackhole blackhole) throws Exception {
             int randomSearchPosition = nioSetup.random.nextInt(nioSetup.searchTermList.size());
             String term = nioSetup.searchTermList.get(randomSearchPosition);
+            Sort sort = new Sort(SortField.FIELD_SCORE,
+                    new SortField("_id", Type.STRING));
             // we don't actually care about the number of hits
-            nioSetup.searcher.search(new TermQuery(new Term("body", term)), nioSetup.topNDocs);
+            blackhole.consume(nioSetup.searcher.search(
+                    new TermQuery(new Term("body", term)), nioSetup.topNDocs, sort));
         }
 
         @Setup(Level.Trial)
         public void setup() throws Exception {
             nioSetup = new NIOSSearchSetup();
+            nioSetup.setSearchType(BenchmarkUtil.SearchTypeEnum.BySort);
             nioSetup.setupNIOS();
             nioSetup.createReader();
         }
     }
 
     public static void main(final String[] args) throws RunnerException {
-        final Options opt = new OptionsBuilder().include(BasicSearchBenchmark.class.getSimpleName()).build();
+        final Options opt = new OptionsBuilder().include(SortSearchBenchmark.class.getSimpleName()).build();
         new Runner(opt).run();
     }
 
 }
+
