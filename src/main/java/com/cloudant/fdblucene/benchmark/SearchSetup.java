@@ -11,6 +11,7 @@ import java.util.ArrayList;
 
 import org.apache.lucene.codecs.lucene80.Lucene80Codec;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.DirectoryReader;
@@ -60,6 +61,19 @@ public abstract class SearchSetup {
         cleanDirectory();
         writer = new IndexWriter(dir, config);
         random = new Random();
+
+        final BytesRef[] group100 = BenchmarkUtil.randomStrings(100, random);
+        final BytesRef[] group10K = BenchmarkUtil.randomStrings(10000, random);
+        final BytesRef[] group100K = BenchmarkUtil.randomStrings(100000, random);
+        final BytesRef[] group1M = BenchmarkUtil.randomStrings(1000000, random);
+
+        Field group100Field = new SortedDocValuesField("group100", new BytesRef());
+        Field group100KField = new SortedDocValuesField("group10K", new BytesRef());
+        Field group10KField = new SortedDocValuesField("group100K", new BytesRef());
+        Field group1MField = new SortedDocValuesField("group1M", new BytesRef());
+        Field groupBlockField = new SortedDocValuesField("groupblock", new BytesRef());
+        Field groupEndField = new StringField("groupend", "x", Field.Store.NO);
+
         for (int i = 0; i < docsToIndex; i++) {
             docs = new LineFileDocs(random, LuceneTestCase.DEFAULT_LINE_DOCS_FILE);
             doc = docs.nextDoc();
@@ -82,6 +96,20 @@ public abstract class SearchSetup {
             } else if (searchType == BenchmarkUtil.SearchTypeEnum.BySort) {
                 doc.add(new SortedDocValuesField ("_id",
                         new BytesRef("doc-"  + counter.incrementAndGet())));
+            } else if (searchType == BenchmarkUtil.SearchTypeEnum.ByGroup) {
+                group100Field.setBytesValue(group100[i%100]);
+                group10KField.setBytesValue(group10K[i%10000]);
+                group100KField.setBytesValue(group100K[i%100000]);
+                group1MField.setBytesValue(group1M[i%1000000]);
+
+                doc.add(new SortedDocValuesField ("_id",
+                        new BytesRef("doc-"  + counter.incrementAndGet())));
+                doc.add(group100Field);
+                doc.add(group10KField);
+                doc.add(group100KField);
+                doc.add(group1MField);
+                doc.add(groupBlockField);
+                doc.add(groupEndField);
             } else {
                 throw new IllegalArgumentException();
             }
