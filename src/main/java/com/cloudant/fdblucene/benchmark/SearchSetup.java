@@ -8,6 +8,13 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.List;
 import java.util.ArrayList;
+import java.io.InputStream;
+import java.util.Properties;
+
+import org.apache.lucene.benchmark.byTask.feeds.ContentSource;
+import org.apache.lucene.benchmark.byTask.feeds.DocMaker;
+import org.apache.lucene.benchmark.byTask.feeds.EnwikiContentSource;
+import org.apache.lucene.benchmark.byTask.utils.Config;
 
 import org.apache.lucene.codecs.lucene80.Lucene80Codec;
 import org.apache.lucene.document.Document;
@@ -52,6 +59,8 @@ public abstract class SearchSetup {
     public int topNDocs = 50;
     public int maxSearchTerms = 1000;
     public BenchmarkUtil.SearchTypeEnum searchType = BenchmarkUtil.SearchTypeEnum.Default;
+    protected DocMaker docMaker;
+    protected ContentSource source;
 
     public abstract Directory getDirectory(final Path path) throws IOException;
 
@@ -60,6 +69,14 @@ public abstract class SearchSetup {
         dir = getDirectory(generateTestPath());
         cleanDirectory();
         writer = new IndexWriter(dir, config);
+
+        Config benchConfig = loadBenchConfig();
+        ContentSource source = getContentSource();
+        source.setConfig(benchConfig);
+        docMaker = new DocMaker();
+        docMaker.setConfig(benchConfig, source);
+        docMaker.resetInputs();
+
         random = new Random();
 
         final BytesRef[] group100 = BenchmarkUtil.randomStrings(100, random);
@@ -75,8 +92,7 @@ public abstract class SearchSetup {
         Field groupEndField = new StringField("groupend", "x", Field.Store.NO);
 
         for (int i = 0; i < docsToIndex; i++) {
-            docs = new LineFileDocs(random, LuceneTestCase.DEFAULT_LINE_DOCS_FILE);
-            doc = docs.nextDoc();
+            doc = docMaker.makeDocument();
             // Look through the body's terms, grab a String term, store it
             // so that it can be randomly chosen for search later on
             String[] body = doc.getValues("body");
@@ -143,7 +159,7 @@ public abstract class SearchSetup {
             throw new Error("System property 'dir' not set.");
         }
         final FileSystem fileSystem = FileSystems.getDefault();
-        return fileSystem.getPath(dir);
+        return fileSystem.getPath(dir + "/index");
     }
 
     protected IndexWriterConfig indexWriterConfig() {
@@ -153,11 +169,25 @@ public abstract class SearchSetup {
         return config;
     }
 
+    // can be overriden to use different content sources
+    protected ContentSource getContentSource() {
+        return new EnwikiContentSource();
+    }
+
     protected void setSearchType(BenchmarkUtil.SearchTypeEnum searchType) {
         this.searchType = searchType;
     }
 
     protected BenchmarkUtil.SearchTypeEnum getSearchType() {
         return searchType;
+    }
+
+    private Config loadBenchConfig() throws IOException {
+        Properties props = new Properties();
+        InputStream in = getClass().getResourceAsStream("/content-source.properties");
+        // load the docs.file of the enwiki content source or other content source
+        // docs.file is used by DocMaker
+        props.load(in);
+        return new Config(props);
     }
 }
