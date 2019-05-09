@@ -32,32 +32,26 @@ public class BasicSearchBenchmark {
 
     @BenchmarkMode(Mode.Throughput)
     @Fork(1)
-    @Warmup(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
+    @Warmup(iterations = 3, time = 30, timeUnit = TimeUnit.SECONDS)
     @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
     @Timeout(time = 15, timeUnit = TimeUnit.MINUTES)
     @OutputTimeUnit(TimeUnit.SECONDS)
     @Benchmark
     public long searchFDB(FDBSearchSetup setup) throws Exception {
-        int randomSearchPosition = setup.random.nextInt(setup.searchTermList.size());
-        String term = setup.searchTermList.get(randomSearchPosition);
-        // we don't actually care about the number of hits
-        TopDocs tp = setup.searcher.search(new TermQuery(new Term("body", term)),
+        TopDocs tp = setup.searcher.search(setup.queryMaker.makeQuery(),
             setup.topNDocs);
         return tp.totalHits.value;
     }
 
     @BenchmarkMode(Mode.Throughput)
     @Fork(1)
-    @Warmup(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
+    @Warmup(iterations = 3, time = 30, timeUnit = TimeUnit.SECONDS)
     @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
-    @Timeout(time = 5, timeUnit = TimeUnit.MINUTES)
+    @Timeout(time = 15, timeUnit = TimeUnit.MINUTES)
     @OutputTimeUnit(TimeUnit.SECONDS)
     @Benchmark
     public long searchNIOS(NIOSSearchSetup setup) throws Exception {
-        int randomSearchPosition = setup.random.nextInt(setup.searchTermList.size());
-        String term = setup.searchTermList.get(randomSearchPosition);
-        // we don't actually care about the number of hits
-        TopDocs tp = setup.searcher.search(new TermQuery(new Term("body", term)),
+        TopDocs tp = setup.searcher.search(setup.queryMaker.makeQuery(),
             setup.topNDocs);
         return tp.totalHits.value;
     }
