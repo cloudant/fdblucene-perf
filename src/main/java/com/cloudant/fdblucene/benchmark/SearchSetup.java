@@ -30,7 +30,6 @@ import org.apache.lucene.store.Directory;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Level;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -50,9 +49,6 @@ public abstract class SearchSetup {
     protected int docsToIndex = 10000;
     protected EnwikiQueryMaker queryMaker;
     protected int topNDocs = 50;
-
-    @Param({"5", "10", "50", "100"})
-    protected int numberOfTerms;
 
     public abstract Directory getDirectory(final Path path) throws IOException;
 
