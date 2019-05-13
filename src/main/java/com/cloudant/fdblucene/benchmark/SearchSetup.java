@@ -14,6 +14,7 @@ import java.util.Properties;
 import org.apache.lucene.benchmark.byTask.feeds.ContentSource;
 import org.apache.lucene.benchmark.byTask.feeds.DocMaker;
 import org.apache.lucene.benchmark.byTask.feeds.EnwikiContentSource;
+import org.apache.lucene.benchmark.byTask.feeds.EnwikiQueryMaker;
 import org.apache.lucene.benchmark.byTask.utils.Config;
 
 import org.apache.lucene.codecs.lucene80.Lucene80Codec;
@@ -58,6 +59,7 @@ public abstract class SearchSetup {
     public List<String> searchTermList = new ArrayList<String>();
     public int topNDocs = 50;
     public int maxSearchTerms = 1000;
+    protected EnwikiQueryMaker queryMaker;
     public BenchmarkUtil.SearchTypeEnum searchType = BenchmarkUtil.SearchTypeEnum.Default;
     protected DocMaker docMaker;
     protected ContentSource source;
@@ -77,6 +79,9 @@ public abstract class SearchSetup {
         docMaker.setConfig(benchConfig, source);
         docMaker.resetInputs();
 
+		// for generating queries in our benchmark
+        queryMaker = new EnwikiQueryMaker();
+        queryMaker.setConfig(benchConfig);
         random = new Random();
 
         final BytesRef[] group100 = BenchmarkUtil.randomStrings(100, random);
@@ -110,16 +115,18 @@ public abstract class SearchSetup {
                 idField.setStringValue("doc-" + counter.incrementAndGet());
                 doc.add(idField);
             } else if (searchType == BenchmarkUtil.SearchTypeEnum.BySort) {
-                doc.add(new SortedDocValuesField ("_id",
-                        new BytesRef("doc-"  + counter.incrementAndGet())));
+                String[] docdate = doc.getValues("docdate");
+                doc.add(new SortedDocValuesField ("sorteddocdate",
+                        new BytesRef(docdate[0])));
             } else if (searchType == BenchmarkUtil.SearchTypeEnum.ByGroup) {
                 group100Field.setBytesValue(group100[i%100]);
                 group10KField.setBytesValue(group10K[i%10000]);
                 group100KField.setBytesValue(group100K[i%100000]);
                 group1MField.setBytesValue(group1M[i%1000000]);
 
-                doc.add(new SortedDocValuesField ("_id",
-                        new BytesRef("doc-"  + counter.incrementAndGet())));
+                String[] docdate = doc.getValues("docdate");
+                doc.add(new SortedDocValuesField ("sorteddocdate",
+                        new BytesRef(docdate[0])));
                 doc.add(group100Field);
                 doc.add(group10KField);
                 doc.add(group100KField);

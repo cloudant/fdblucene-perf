@@ -45,13 +45,11 @@ public class SortSearchBenchmark {
         @Group("searchFDBBySort")
         @GroupThreads(1)
         public void searchFDBBySort(Blackhole blackhole) throws Exception {
-            int randomSearchPosition = fdbSetup.random.nextInt(fdbSetup.searchTermList.size());
-            String term = fdbSetup.searchTermList.get(randomSearchPosition);
             Sort sort = new Sort(SortField.FIELD_SCORE,
-                    new SortField("_id", Type.STRING));
+                    new SortField("sorteddocdate", Type.STRING));
             // we don't actually care about the number of hits
             blackhole.consume(fdbSetup.searcher.search(
-                    new TermQuery(new Term("body", term)), fdbSetup.topNDocs, sort));
+                    fdbSetup.queryMaker.makeQuery(), fdbSetup.topNDocs, sort));
         }
 
         @Setup(Level.Trial)
@@ -78,13 +76,11 @@ public class SortSearchBenchmark {
         @Group("searchNIOSBySort")
         @GroupThreads(1)
         public void searchNIOSBySort(Blackhole blackhole) throws Exception {
-            int randomSearchPosition = nioSetup.random.nextInt(nioSetup.searchTermList.size());
-            String term = nioSetup.searchTermList.get(randomSearchPosition);
             Sort sort = new Sort(SortField.FIELD_SCORE,
-                    new SortField("_id", Type.STRING));
+                    new SortField("sorteddocdate", Type.STRING));
             // we don't actually care about the number of hits
             blackhole.consume(nioSetup.searcher.search(
-                    new TermQuery(new Term("body", term)), nioSetup.topNDocs, sort));
+                    nioSetup.queryMaker.makeQuery(), nioSetup.topNDocs, sort));
         }
 
         @Setup(Level.Trial)

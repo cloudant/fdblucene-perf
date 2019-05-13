@@ -49,16 +49,14 @@ public class GroupSearchBenchmark {
         @Group("searchFDBByGroup")
         @GroupThreads(1)
         public void searchFDBByGroup(Blackhole blackhole) throws Exception {
-            int randomSearchPosition = fdbSetup.random.nextInt(fdbSetup.searchTermList.size());
-            String term = fdbSetup.searchTermList.get(randomSearchPosition);
             Sort groupSort = new Sort(SortField.FIELD_SCORE,
-                    new SortField("_id", Type.STRING));
+                    new SortField("sorteddocdate", Type.STRING));
             FirstPassGroupingCollector c1 = new FirstPassGroupingCollector(
                     new TermGroupSelector("group100"), groupSort, fdbSetup.topNDocs);
             boolean cacheScores = true;
             double maxCacheRAMMB = 4.0;
             CachingCollector cachedCollector = CachingCollector.create(c1, cacheScores, maxCacheRAMMB);
-            fdbSetup.searcher.search(new TermQuery(new Term("body", term)), cachedCollector);
+            fdbSetup.searcher.search(fdbSetup.queryMaker.makeQuery(), cachedCollector);
             Collection topGroups = c1.getTopGroups(0);
             if (topGroups == null) {
                 // No groups matched
@@ -91,16 +89,14 @@ public class GroupSearchBenchmark {
         @Group("searchNIOSByGroup")
         @GroupThreads(1)
         public void searchNIOSByGroup(Blackhole blackhole) throws Exception {
-            int randomSearchPosition = nioSetup.random.nextInt(nioSetup.searchTermList.size());
-            String term = nioSetup.searchTermList.get(randomSearchPosition);
             Sort groupSort = new Sort(SortField.FIELD_SCORE,
-                    new SortField("_id", Type.STRING));
+                    new SortField("sorteddocdate", Type.STRING));
             FirstPassGroupingCollector c1 = new FirstPassGroupingCollector(
                     new TermGroupSelector("group100"), groupSort, nioSetup.topNDocs);
             boolean cacheScores = true;
             double maxCacheRAMMB = 4.0;
             CachingCollector cachedCollector = CachingCollector.create(c1, cacheScores, maxCacheRAMMB);
-            nioSetup.searcher.search(new TermQuery(new Term("body", term)), cachedCollector);
+            nioSetup.searcher.search(nioSetup.queryMaker.makeQuery(), cachedCollector);
             Collection topGroups = c1.getTopGroups(0);
             if (topGroups == null) {
                 blackhole.consume(topGroups);
