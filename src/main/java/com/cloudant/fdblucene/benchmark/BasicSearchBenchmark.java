@@ -34,7 +34,7 @@ public class BasicSearchBenchmark {
         @BenchmarkMode(Mode.Throughput)
         @Fork(1)
         @Warmup(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
-        @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
+        @Measurement(iterations = 3, time = 1, timeUnit = TimeUnit.MINUTES)
         @Timeout(time = 5, timeUnit = TimeUnit.MINUTES)
         @OutputTimeUnit(TimeUnit.SECONDS)
         @Benchmark
@@ -62,7 +62,7 @@ public class BasicSearchBenchmark {
         @BenchmarkMode(Mode.Throughput)
         @Fork(1)
         @Warmup(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
-        @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
+        @Measurement(iterations = 3, time = 1, timeUnit = TimeUnit.MINUTES)
         @Timeout(time = 5, timeUnit = TimeUnit.MINUTES)
         @OutputTimeUnit(TimeUnit.SECONDS)
         @Benchmark

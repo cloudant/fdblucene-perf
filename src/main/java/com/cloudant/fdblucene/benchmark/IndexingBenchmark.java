@@ -18,6 +18,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.NIOFSDirectory;
 import org.apache.lucene.util.LineFileDocs;
 import org.apache.lucene.util.LuceneTestCase;
+import org.openjdk.jmh.annotations.AuxCounters;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -44,11 +45,11 @@ import com.cloudant.fdblucene.FDBDirectory;
 
 public class IndexingBenchmark {
 
-    @BenchmarkMode(Mode.Throughput)
+    @BenchmarkMode(Mode.SampleTime)
     @Fork(1)
     @State(Scope.Benchmark)
-    @Warmup(iterations = 5, time = 10, timeUnit = TimeUnit.SECONDS)
-    @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
+    @Warmup(iterations = 2, time = 10, timeUnit = TimeUnit.SECONDS)
+    @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
     @Timeout(time = 30, timeUnit = TimeUnit.MINUTES)
     @OutputTimeUnit(TimeUnit.SECONDS)
     public static abstract class AbstractIndexingBenchmark {
@@ -66,11 +67,25 @@ public class IndexingBenchmark {
 
         public abstract Directory getDirectory(final Path path) throws IOException;
 
+        @AuxCounters
+        @State(Scope.Thread)
+        public static class IndexingCounters {
+            public int indexed;
+            public int length;
+            @Setup(Level.Iteration)
+            public void clean() {
+                indexed = 0;
+                length =0;
+            }
+        }
+
         @Benchmark
-        public long indexing() throws Exception {
+        public long indexing(IndexingCounters counters) throws Exception {
             if (bigDocs) {
                 doc = docs.nextDoc();
             }
+            counters.length += doc.toString().length();
+            counters.indexed++;
             idField.setStringValue("doc-" + counter.incrementAndGet());
             return writer.addDocument(doc);
         }
@@ -111,7 +126,7 @@ public class IndexingBenchmark {
                 throw new Error("System property 'dir' not set.");
             }
             final FileSystem fileSystem = FileSystems.getDefault();
-            return fileSystem.getPath(dir);
+            return fileSystem.getPath(dir + "/index");
         }
 
         private IndexWriterConfig indexWriterConfig() {

@@ -10,6 +10,9 @@ import java.util.List;
 import java.util.ArrayList;
 import java.io.InputStream;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import org.apache.lucene.benchmark.byTask.feeds.ContentSource;
 import org.apache.lucene.benchmark.byTask.feeds.DocMaker;
@@ -55,7 +58,7 @@ public abstract class SearchSetup {
     public AtomicLong counter = new AtomicLong();
     public Random random;
     public LineFileDocs docs;
-    public int docsToIndex = 100000;
+    public int docsToIndex = 10000;
     public List<String> searchTermList = new ArrayList<String>();
     public int topNDocs = 50;
     public int maxSearchTerms = 1000;
@@ -63,6 +66,8 @@ public abstract class SearchSetup {
     public BenchmarkUtil.SearchTypeEnum searchType = BenchmarkUtil.SearchTypeEnum.Default;
     protected DocMaker docMaker;
     protected ContentSource source;
+    protected ExecutorService executorService;
+    protected ThreadPoolExecutor threadPool;
 
     public abstract Directory getDirectory(final Path path) throws IOException;
 
@@ -146,7 +151,9 @@ public abstract class SearchSetup {
     @Setup(Level.Iteration)
     public void createReader() throws Exception {
         reader = DirectoryReader.open(dir);
-        searcher = new IndexSearcher(reader);
+        threadPool =  (ThreadPoolExecutor) Executors.newCachedThreadPool();
+        threadPool.prestartAllCoreThreads();
+        searcher = new IndexSearcher(reader, threadPool);
     }
 
     @TearDown(Level.Iteration)
