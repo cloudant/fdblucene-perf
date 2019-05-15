@@ -2,23 +2,9 @@ package com.cloudant.fdblucene.benchmark;
 
 import java.util.concurrent.TimeUnit;
 
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TopDocs;
 
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.BenchmarkMode;
-import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.Group;
-import org.openjdk.jmh.annotations.GroupThreads;
-import org.openjdk.jmh.annotations.Measurement;
-import org.openjdk.jmh.annotations.Mode;
-import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.Timeout;
-import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Level;
+import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
@@ -34,17 +20,16 @@ public class BasicSearchBenchmark {
         @BenchmarkMode(Mode.Throughput)
         @Fork(1)
         @Warmup(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
-        @Measurement(iterations = 3, time = 1, timeUnit = TimeUnit.MINUTES)
+        @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
         @Timeout(time = 5, timeUnit = TimeUnit.MINUTES)
         @OutputTimeUnit(TimeUnit.SECONDS)
         @Benchmark
         @Group("searchFDB")
         @GroupThreads(1)
-        public void searchFDB() throws Exception {
-            int randomSearchPosition = fdbSetup.random.nextInt(fdbSetup.searchTermList.size());
-            String term = fdbSetup.searchTermList.get(randomSearchPosition);
-            // we don't actually care about the number of hits
-            fdbSetup.searcher.search(new TermQuery(new Term("body", term)), fdbSetup.topNDocs);
+        public long searchFDB() throws Exception {
+            TopDocs tp = fdbSetup.searcher.search(fdbSetup.queryMaker.makeQuery(),
+                    fdbSetup.topNDocs);
+            return tp.totalHits.value;
         }
 
         @Setup(Level.Trial)
@@ -52,6 +37,11 @@ public class BasicSearchBenchmark {
             fdbSetup = new FDBSearchSetup();
             fdbSetup.startFDBNetworking();
             fdbSetup.createReader();
+        }
+
+        @TearDown(Level.Trial)
+        public void teardown() throws Exception {
+            fdbSetup.teardown();
         }
     }
 
@@ -62,17 +52,16 @@ public class BasicSearchBenchmark {
         @BenchmarkMode(Mode.Throughput)
         @Fork(1)
         @Warmup(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
-        @Measurement(iterations = 3, time = 1, timeUnit = TimeUnit.MINUTES)
+        @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
         @Timeout(time = 5, timeUnit = TimeUnit.MINUTES)
         @OutputTimeUnit(TimeUnit.SECONDS)
         @Benchmark
         @Group("searchNIOS")
         @GroupThreads(1)
-        public void searchNIOS() throws Exception {
-            int randomSearchPosition = nioSetup.random.nextInt(nioSetup.searchTermList.size());
-            String term = nioSetup.searchTermList.get(randomSearchPosition);
-            // we don't actually care about the number of hits
-            nioSetup.searcher.search(new TermQuery(new Term("body", term)), nioSetup.topNDocs);
+        public long searchNIOS() throws Exception {
+            TopDocs tp = nioSetup.searcher.search(nioSetup.queryMaker.makeQuery(),
+                    nioSetup.topNDocs);
+            return tp.totalHits.value;
         }
 
         @Setup(Level.Trial)
@@ -80,6 +69,11 @@ public class BasicSearchBenchmark {
             nioSetup = new NIOSSearchSetup();
             nioSetup.setupNIOS();
             nioSetup.createReader();
+        }
+
+        @TearDown(Level.Trial)
+        public void teardown() throws Exception {
+            nioSetup.teardown();
         }
     }
 

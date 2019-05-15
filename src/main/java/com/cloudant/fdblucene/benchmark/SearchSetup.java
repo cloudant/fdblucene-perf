@@ -48,26 +48,24 @@ import org.openjdk.jmh.runner.FailureAssistException;
 
 @State(Scope.Benchmark)
 public abstract class SearchSetup {
-    public Database db;
-    public Directory dir;
-    public Document doc;
-    public IndexWriter writer;
-    public DirectoryReader reader;
-    public IndexSearcher searcher;
-    public StringField idField;
-    public AtomicLong counter = new AtomicLong();
+    protected Database db;
+    protected Directory dir;
+    protected Document doc;
+    protected IndexWriter writer;
+    protected DirectoryReader reader;
+    protected IndexSearcher searcher;
+    protected StringField idField;
+    protected AtomicLong counter = new AtomicLong();
     public Random random;
     public LineFileDocs docs;
     public int docsToIndex = 10000;
     public List<String> searchTermList = new ArrayList<String>();
-    public int topNDocs = 50;
+    protected int topNDocs = 50;
     public int maxSearchTerms = 1000;
     protected EnwikiQueryMaker queryMaker;
     public BenchmarkUtil.SearchTypeEnum searchType = BenchmarkUtil.SearchTypeEnum.Default;
     protected DocMaker docMaker;
-    protected ContentSource source;
     protected ExecutorService executorService;
-    protected ThreadPoolExecutor threadPool;
 
     public abstract Directory getDirectory(final Path path) throws IOException;
 
@@ -151,13 +149,13 @@ public abstract class SearchSetup {
     @Setup(Level.Iteration)
     public void createReader() throws Exception {
         reader = DirectoryReader.open(dir);
-        threadPool =  (ThreadPoolExecutor) Executors.newCachedThreadPool();
-        threadPool.prestartAllCoreThreads();
-        searcher = new IndexSearcher(reader, threadPool);
+        executorService =  Executors.newCachedThreadPool();
+        searcher = new IndexSearcher(reader, executorService);
     }
 
     @TearDown(Level.Iteration)
     public void teardown() throws Exception {
+        executorService.shutdown();
         reader.close();
     }
 
