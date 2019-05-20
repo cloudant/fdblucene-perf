@@ -10,27 +10,29 @@ import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
-import org.openjdk.jmh.annotations.Timeout;
 import org.openjdk.jmh.annotations.Warmup;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.subspace.Subspace;
 import com.cloudant.fdblucene.FDBIndexWriter;
 
 @BenchmarkMode(Mode.All)
 @State(Scope.Benchmark)
-@Warmup(iterations = 5, time = 10, timeUnit = TimeUnit.SECONDS)
-@Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
-@Timeout(time = 30, timeUnit = TimeUnit.MINUTES)
+@Fork(1)
+@Warmup(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 3, time = 1, timeUnit = TimeUnit.MINUTES)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class FDBIndexWriterBenchmark {
 
@@ -40,6 +42,16 @@ public class FDBIndexWriterBenchmark {
 
     private static FDBIndexWriter writer;
 
+    @State(Scope.Thread)
+
+    public static class ThreadState {
+        volatile Transaction txn;
+        volatile int counter;
+    }
+
+    @Param({ "1", "10", "100", "1000" })
+    public int docsPerTxn;
+
     @Setup(Level.Trial)
     public void startFDBNetworking() {
         FDB.selectAPIVersion(600);
@@ -48,7 +60,7 @@ public class FDBIndexWriterBenchmark {
 
     @Setup(Level.Iteration)
     public void setup() {
-        writer = new FDBIndexWriter(db, index, new StandardAnalyzer());
+        writer = new FDBIndexWriter(index, new StandardAnalyzer());
         teardown();
     }
 
@@ -61,8 +73,17 @@ public class FDBIndexWriterBenchmark {
     }
 
     @Benchmark
-    public void addDocument() throws Exception {
-        writer.addDocument(doc("hello"));
+    public void addDocument(final ThreadState state) throws Exception {
+        if (state.txn == null) {
+            state.txn = db.createTransaction();
+        }
+        if (state.counter++ % docsPerTxn == 0) {
+            state.txn.commit().join();
+            state.txn.close();
+            state.txn = db.createTransaction();
+        }
+
+        writer.addDocument(state.txn, doc("hello"));
     }
 
     private Document doc(final String id) {
