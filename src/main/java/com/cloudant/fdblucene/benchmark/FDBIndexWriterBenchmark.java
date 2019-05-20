@@ -39,12 +39,11 @@ public class FDBIndexWriterBenchmark {
     private static final Subspace index = new Subspace(new byte[] { 1, 2, 3 });
 
     private static Database db;
-
-    private static FDBIndexWriter writer;
+    private Document doc;
 
     @State(Scope.Thread)
-
     public static class ThreadState {
+        final FDBIndexWriter writer = new FDBIndexWriter(index, new StandardAnalyzer());
         volatile Transaction txn;
         volatile int counter;
     }
@@ -60,7 +59,7 @@ public class FDBIndexWriterBenchmark {
 
     @Setup(Level.Iteration)
     public void setup() {
-        writer = new FDBIndexWriter(index, new StandardAnalyzer());
+        doc = doc("hello");
         teardown();
     }
 
@@ -76,14 +75,16 @@ public class FDBIndexWriterBenchmark {
     public void addDocument(final ThreadState state) throws Exception {
         if (state.txn == null) {
             state.txn = db.createTransaction();
+            state.txn.options().setTransactionLoggingEnable("addDocument");
         }
+
+        state.writer.addDocument(db, state.txn, doc);
+
         if (state.counter++ % docsPerTxn == 0) {
             state.txn.commit().join();
             state.txn.close();
             state.txn = db.createTransaction();
         }
-
-        writer.addDocument(state.txn, doc("hello"));
     }
 
     private Document doc(final String id) {
