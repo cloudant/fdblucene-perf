@@ -15,7 +15,6 @@ import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -24,7 +23,6 @@ import org.openjdk.jmh.annotations.Warmup;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.subspace.Subspace;
 import com.cloudant.fdblucene.FDBIndexWriter;
 
@@ -43,13 +41,8 @@ public class FDBIndexWriterBenchmark {
 
     @State(Scope.Thread)
     public static class ThreadState {
-        final FDBIndexWriter writer = new FDBIndexWriter(index, new StandardAnalyzer());
-        volatile Transaction txn;
-        volatile int counter;
+        final FDBIndexWriter writer = new FDBIndexWriter(db, index, new StandardAnalyzer());
     }
-
-    @Param({ "1", "10", "100", "1000" })
-    public int docsPerTxn;
 
     @Setup(Level.Trial)
     public void startFDBNetworking() {
@@ -73,18 +66,7 @@ public class FDBIndexWriterBenchmark {
 
     @Benchmark
     public void addDocument(final ThreadState state) throws Exception {
-        if (state.txn == null) {
-            state.txn = db.createTransaction();
-            state.txn.options().setTransactionLoggingEnable("addDocument");
-        }
-
-        state.writer.addDocument(db, state.txn, doc);
-
-        if (state.counter++ % docsPerTxn == 0) {
-            state.txn.commit().join();
-            state.txn.close();
-            state.txn = db.createTransaction();
-        }
+        state.writer.addDocument(doc);
     }
 
     private Document doc(final String id) {
