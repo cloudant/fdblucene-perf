@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -16,8 +15,6 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.NIOFSDirectory;
-import org.apache.lucene.util.LineFileDocs;
-import org.apache.lucene.util.LuceneTestCase;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -41,7 +38,6 @@ import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.cloudant.fdblucene.FDBDirectory;
 
-
 public class IndexingBenchmark {
 
     @BenchmarkMode(Mode.Throughput)
@@ -58,19 +54,11 @@ public class IndexingBenchmark {
         private IndexWriter writer;
         private StringField idField;
         private AtomicLong counter = new AtomicLong();
-        private Random random;
-        private LineFileDocs docs;
-
-        @Param({"true", "false"})
-        private boolean bigDocs;
 
         public abstract Directory getDirectory(final Path path) throws IOException;
 
         @Benchmark
         public long indexing() throws Exception {
-            if (bigDocs) {
-                doc = docs.nextDoc();
-            }
             idField.setStringValue("doc-" + counter.incrementAndGet());
             return writer.addDocument(doc);
         }
@@ -81,13 +69,7 @@ public class IndexingBenchmark {
             dir = getDirectory(generateTestPath());
             cleanDirectory();
             writer = new IndexWriter(dir, config);
-            random = new Random();
-            docs = new LineFileDocs(random, LuceneTestCase.DEFAULT_LINE_DOCS_FILE);
-            if (bigDocs) {
-                doc = docs.nextDoc();
-            } else {
-                doc = new Document();
-            }
+            doc = new Document();
             idField = new StringField("_id", "", Store.YES);
             doc.add(idField);
             counter.set(0L);
@@ -107,7 +89,7 @@ public class IndexingBenchmark {
 
         private Path generateTestPath() {
             final String dir = System.getProperty("dir");
-            if (dir == null){
+            if (dir == null) {
                 throw new Error("System property 'dir' not set.");
             }
             final FileSystem fileSystem = FileSystems.getDefault();
@@ -124,6 +106,12 @@ public class IndexingBenchmark {
 
     public static class FDBIndexingBenchmark extends AbstractIndexingBenchmark {
 
+        @Param({ "100", "1000", "10000", "100000" })
+        private int pageSize;
+
+        @Param({ "1", "2", "5", "10", "100" })
+        private int pagesPerTxn;
+
         @Setup(Level.Trial)
         public void startFDBNetworking() {
             FDB.selectAPIVersion(600);
@@ -137,7 +125,7 @@ public class IndexingBenchmark {
 
         @Override
         public Directory getDirectory(final Path path) throws IOException {
-            return FDBDirectory.open(db, path);
+            return FDBDirectory.open(db, path, pageSize, pageSize * pagesPerTxn);
         }
 
     }
