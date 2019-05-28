@@ -25,7 +25,6 @@ import org.openjdk.jmh.annotations.Warmup;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.subspace.Subspace;
 import com.cloudant.fdblucene.FDBIndexWriter;
 
@@ -40,18 +39,14 @@ public class FDBIndexWriterBenchmark {
     private static final Subspace index = new Subspace(new byte[] { 1, 2, 3 });
 
     private static Database db;
-    private Document doc;
+    private Document[] docs;
 
-    private AtomicLong counter = new AtomicLong();
+    private final AtomicLong counter = new AtomicLong();
 
     @Param({ "1", "2", "5", "10", "20" })
     private int docsPerTxn;
 
-    @State(Scope.Thread)
-    public static class ThreadState {
-        final FDBIndexWriter writer = new FDBIndexWriter(index, new StandardAnalyzer());
-        Transaction txn;
-    }
+    private FDBIndexWriter writer;
 
     @Setup(Level.Trial)
     public void startFDBNetworking() {
@@ -61,33 +56,26 @@ public class FDBIndexWriterBenchmark {
 
     @Setup(Level.Iteration)
     public void setup() {
-        doc = doc("hello");
-        counter.set(0);
+        docs = new Document[docsPerTxn];
+        for (int i = 0; i < docsPerTxn; i++) {
+            docs[i] = doc("doc-" + i);
+        }
+        writer = new FDBIndexWriter(db, index, new StandardAnalyzer());
         teardown();
     }
 
     @TearDown(Level.Iteration)
     public void teardown() {
         db.run(txn -> {
+            counter.set(0);
             txn.clear(index.range());
             return null;
         });
     }
 
     @Benchmark
-    public void addDocument(final ThreadState state) throws Exception {
-        if (state.txn == null) {
-            state.txn = db.createTransaction();
-        }
-
-        final int count = (int) counter.getAndIncrement();
-        state.writer.addDocument(state.txn, count, doc);
-
-        if ((count + 1) % docsPerTxn == 0) {
-            state.txn.commit().join();
-            state.txn.close();
-            state.txn = db.createTransaction();
-        }
+    public void addDocument() throws Exception {
+        writer.addDocuments(docs);
     }
 
     private Document doc(final String id) {
