@@ -43,7 +43,7 @@ public class FDBIndexWriterBenchmark {
 
     private final AtomicLong counter = new AtomicLong();
 
-    @Param({ "1", "2", "5", "10", "20" })
+    @Param({ "1", "10", "100", "1000" })
     private int docsPerTxn;
 
     private FDBIndexWriter writer;
