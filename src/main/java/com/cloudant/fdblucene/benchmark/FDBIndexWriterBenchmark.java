@@ -32,7 +32,7 @@ import com.cloudant.fdblucene.FDBIndexWriter;
 @State(Scope.Benchmark)
 @Fork(1)
 @Warmup(iterations = 0)
-@Measurement(iterations = 3, time = 30, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 3, time = 5, timeUnit = TimeUnit.MINUTES)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class FDBIndexWriterBenchmark {
 
