@@ -43,8 +43,8 @@ public class IndexingBenchmark {
     @BenchmarkMode(Mode.Throughput)
     @Fork(1)
     @State(Scope.Benchmark)
-    @Warmup(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
-    @Measurement(iterations = 3, time = 2, timeUnit = TimeUnit.MINUTES)
+    @Warmup(iterations = 1, time = 10, timeUnit = TimeUnit.SECONDS)
+    @Measurement(iterations = 3, time = 5, timeUnit = TimeUnit.MINUTES)
     @Timeout(time = 30, timeUnit = TimeUnit.MINUTES)
     @OutputTimeUnit(TimeUnit.SECONDS)
     public static abstract class AbstractIndexingBenchmark {
@@ -55,12 +55,20 @@ public class IndexingBenchmark {
         private StringField idField;
         private AtomicLong counter = new AtomicLong();
 
+        @Param({ "10", "100", "1000", "10000" })
+        private int commitEvery;
+
         public abstract Directory getDirectory(final Path path) throws IOException;
 
         @Benchmark
         public long indexing() throws Exception {
-            idField.setStringValue("doc-" + counter.incrementAndGet());
-            return writer.addDocument(doc);
+            final long count = counter.incrementAndGet();
+            idField.setStringValue("doc-" + count);
+            final long result = writer.addDocument(doc);
+            if (count % commitEvery == 0) {
+                writer.commit();
+            }
+            return result;
         }
 
         @Setup(Level.Iteration)
@@ -106,10 +114,10 @@ public class IndexingBenchmark {
 
     public static class FDBIndexingBenchmark extends AbstractIndexingBenchmark {
 
-        @Param({ "100", "1000", "10000", "100000" })
+        @Param({ "1000", "10000", "100000" })
         private int pageSize;
 
-        @Param({ "1", "2", "5", "10", "100" })
+        @Param({ "1", "10", "100" })
         private int pagesPerTxn;
 
         @Setup(Level.Trial)
