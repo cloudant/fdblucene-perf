@@ -17,6 +17,7 @@ import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OperationsPerInvocation;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -48,6 +49,9 @@ public class FDBIndexWriterBenchmark {
 
     private FDBIndexWriter writer;
 
+    @Param({ "0" })
+    private int firstID;
+
     @Setup(Level.Trial)
     public void startFDBNetworking() {
         FDB.selectAPIVersion(600);
@@ -76,7 +80,7 @@ public class FDBIndexWriterBenchmark {
     @Benchmark
     @OperationsPerInvocation(docsPerTxn)
     public void addDocument() throws Exception {
-        final int startID = (int) counter.getAndAdd(docsPerTxn);
+        final int startID = firstID + (int) counter.getAndAdd(docsPerTxn);
         try (Transaction txn = db.createTransaction()) {
             txn.options().setTransactionLoggingEnable(
                     String.format("jmh_addDocument(%d-%d)", startID, startID + docsPerTxn - 1));
