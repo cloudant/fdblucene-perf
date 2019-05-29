@@ -15,8 +15,8 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OperationsPerInvocation;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -25,6 +25,7 @@ import org.openjdk.jmh.annotations.Warmup;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.subspace.Subspace;
 import com.cloudant.fdblucene.FDBIndexWriter;
 
@@ -43,8 +44,7 @@ public class FDBIndexWriterBenchmark {
 
     private final AtomicLong counter = new AtomicLong();
 
-    @Param({ "1", "10", "100", "1000" })
-    private int docsPerTxn;
+    private static final int docsPerTxn = 100;
 
     private FDBIndexWriter writer;
 
@@ -74,8 +74,16 @@ public class FDBIndexWriterBenchmark {
     }
 
     @Benchmark
+    @OperationsPerInvocation(docsPerTxn)
     public void addDocument() throws Exception {
-        writer.addDocuments(docs);
+        try (Transaction txn = db.createTransaction()) {
+            txn.options().setTransactionLoggingEnable("jmh_addDocument()");
+            for (int i = 0; i < docsPerTxn; i++) {
+                int id = (int) counter.incrementAndGet();
+                writer.addDocument(txn, id, docs[i]);
+            }
+            txn.commit().join();
+        }
     }
 
     private Document doc(final String id) {
