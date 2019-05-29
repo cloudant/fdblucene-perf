@@ -76,11 +76,12 @@ public class FDBIndexWriterBenchmark {
     @Benchmark
     @OperationsPerInvocation(docsPerTxn)
     public void addDocument() throws Exception {
+        final int startID = (int) counter.getAndAdd(docsPerTxn);
         try (Transaction txn = db.createTransaction()) {
-            txn.options().setTransactionLoggingEnable("jmh_addDocument()");
+            txn.options().setTransactionLoggingEnable(
+                    String.format("jmh_addDocument(%d-%d)", startID, startID + docsPerTxn - 1));
             for (int i = 0; i < docsPerTxn; i++) {
-                int id = (int) counter.incrementAndGet();
-                writer.addDocument(txn, id, docs[i]);
+                writer.addDocument(txn, startID + i, docs[i]);
             }
             txn.commit().join();
         }
