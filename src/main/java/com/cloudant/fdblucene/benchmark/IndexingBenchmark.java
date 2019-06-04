@@ -126,10 +126,10 @@ public class IndexingBenchmark {
 
     public static class FDBIndexingBenchmark extends AbstractIndexingBenchmark {
 
-        @Param({"10000" })
+        @Param({"1000", "5000", "10000"})
         private int pageSize;
 
-        @Param({"10" })
+        @Param({"5", "10", "100" })
         private int pagesPerTxn;
 
         @Setup(Level.Trial)
