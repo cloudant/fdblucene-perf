@@ -11,6 +11,8 @@ import org.apache.lucene.codecs.lucene80.Lucene80Codec;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.document.StringField;
+import org.apache.lucene.document.StoredField;
+import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
@@ -21,6 +23,7 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OperationsPerInvocation;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
@@ -43,24 +46,30 @@ public class IndexingBenchmark {
     @BenchmarkMode(Mode.Throughput)
     @Fork(1)
     @State(Scope.Benchmark)
-    @Warmup(iterations = 5, time = 10, timeUnit = TimeUnit.SECONDS)
-    @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
+    @Warmup(iterations = 0)
+    @Measurement(iterations = 3, time = 2, timeUnit = TimeUnit.MINUTES)
     @Timeout(time = 30, timeUnit = TimeUnit.MINUTES)
     @OutputTimeUnit(TimeUnit.SECONDS)
     public static abstract class AbstractIndexingBenchmark {
         protected Database db;
         private Directory dir;
-        private Document doc;
+        private Document[] docs;
         private IndexWriter writer;
         private StringField idField;
         private AtomicLong counter = new AtomicLong();
 
+        private static final int docsPerTxn = 100;
+
         public abstract Directory getDirectory(final Path path) throws IOException;
 
         @Benchmark
+        @OperationsPerInvocation(docsPerTxn)
         public long indexing() throws Exception {
-            idField.setStringValue("doc-" + counter.incrementAndGet());
-            return writer.addDocument(doc);
+            long retVal = 0;
+            for (int i = 0; i < docsPerTxn; i++) {
+                retVal = writer.addDocument(docs[i]);
+            }
+            return retVal;
         }
 
         @Setup(Level.Iteration)
@@ -69,10 +78,11 @@ public class IndexingBenchmark {
             dir = getDirectory(generateTestPath());
             cleanDirectory();
             writer = new IndexWriter(dir, config);
-            doc = new Document();
-            idField = new StringField("_id", "", Store.YES);
-            doc.add(idField);
-            counter.set(0L);
+
+            docs = new Document[docsPerTxn];
+            for (int i = 0; i < docsPerTxn; i++) {
+                docs[i] = doc("doc-" + i);
+            }
         }
 
         @TearDown(Level.Iteration)
@@ -102,14 +112,24 @@ public class IndexingBenchmark {
             config.setCodec(new Lucene80Codec());
             return config;
         }
+
+        private Document doc(final String id) {
+            final Document result = new Document();
+            result.add(new StringField("_id", id, Store.YES));
+            result.add(new TextField("body", "abc def ghi", Store.NO));
+            result.add(new StoredField("float", 123.456f));
+            result.add(new StoredField("double", 123.456));
+            return result;
+        }
+
     }
 
     public static class FDBIndexingBenchmark extends AbstractIndexingBenchmark {
 
-        @Param({ "100", "1000", "10000", "100000" })
+        @Param({"10000" })
         private int pageSize;
 
-        @Param({ "1", "2", "5", "10", "100" })
+        @Param({"10" })
         private int pagesPerTxn;
 
         @Setup(Level.Trial)
