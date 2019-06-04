@@ -65,11 +65,10 @@ public class IndexingBenchmark {
         @Benchmark
         @OperationsPerInvocation(docsPerTxn)
         public long indexing() throws Exception {
-            long retVal = 0;
             for (int i = 0; i < docsPerTxn; i++) {
-                retVal = writer.addDocument(docs[i]);
+                writer.addDocument(docs[i]);
             }
-            return retVal;
+            return writer.commit();
         }
 
         @Setup(Level.Iteration)
