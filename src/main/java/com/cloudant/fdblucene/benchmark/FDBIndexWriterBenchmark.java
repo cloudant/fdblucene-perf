@@ -1,7 +1,6 @@
 package com.cloudant.fdblucene.benchmark;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -17,7 +16,6 @@ import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OperationsPerInvocation;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -26,7 +24,6 @@ import org.openjdk.jmh.annotations.Warmup;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.subspace.Subspace;
 import com.cloudant.fdblucene.FDBIndexWriter;
 
@@ -34,7 +31,7 @@ import com.cloudant.fdblucene.FDBIndexWriter;
 @State(Scope.Benchmark)
 @Fork(1)
 @Warmup(iterations = 0)
-@Measurement(iterations = 3, time = 5, timeUnit = TimeUnit.MINUTES)
+@Measurement(iterations = 3, time = 1, timeUnit = TimeUnit.MINUTES)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class FDBIndexWriterBenchmark {
 
@@ -43,14 +40,9 @@ public class FDBIndexWriterBenchmark {
     private static Database db;
     private Document[] docs;
 
-    private final AtomicLong counter = new AtomicLong();
-
-    private static final int docsPerTxn = 100;
+    private static final int docsPerTxn = 200;
 
     private FDBIndexWriter writer;
-
-    @Param({ "0" })
-    private int firstID;
 
     @Setup(Level.Trial)
     public void startFDBNetworking() {
@@ -71,7 +63,6 @@ public class FDBIndexWriterBenchmark {
     @TearDown(Level.Iteration)
     public void teardown() {
         db.run(txn -> {
-            counter.set(0);
             txn.clear(index.range());
             return null;
         });
@@ -80,15 +71,7 @@ public class FDBIndexWriterBenchmark {
     @Benchmark
     @OperationsPerInvocation(docsPerTxn)
     public void addDocument() throws Exception {
-        final int startID = firstID + (int) counter.getAndAdd(docsPerTxn);
-        try (Transaction txn = db.createTransaction()) {
-            txn.options().setTransactionLoggingEnable(
-                    String.format("jmh_addDocument(%d-%d)", startID, startID + docsPerTxn - 1));
-            for (int i = 0; i < docsPerTxn; i++) {
-                writer.addDocument(txn, startID + i, docs[i]);
-            }
-            txn.commit().join();
-        }
+        writer.addDocuments(docs);
     }
 
     private Document doc(final String id) {
