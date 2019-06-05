@@ -54,13 +54,32 @@ public class IndexingBenchmark {
         private IndexWriter writer;
         private StringField idField;
         private AtomicLong counter = new AtomicLong();
+        private Object lock = new Object();
+        private long lastCommit = System.currentTimeMillis();
 
         public abstract Directory getDirectory(final Path path) throws IOException;
 
         @Benchmark
         public long indexing() throws Exception {
             idField.setStringValue("doc-" + counter.incrementAndGet());
-            return writer.addDocument(doc);
+            long result = writer.addDocument(doc);
+
+            long now = System.currentTimeMillis();
+            final boolean commit;
+            synchronized (lock) {
+                if (now - lastCommit > 60000) {
+                    lastCommit = now;
+                    commit = true;
+                } else {
+                    commit = false;
+                }
+            }
+
+            if (commit) {
+                System.err.println("committing");
+                result += writer.commit();
+            }
+            return result;
         }
 
         @Setup(Level.Iteration)
