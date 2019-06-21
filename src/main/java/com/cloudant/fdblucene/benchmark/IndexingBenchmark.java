@@ -43,8 +43,8 @@ public class IndexingBenchmark {
     @BenchmarkMode(Mode.Throughput)
     @Fork(1)
     @State(Scope.Benchmark)
-    @Warmup(iterations = 5, time = 10, timeUnit = TimeUnit.SECONDS)
-    @Measurement(iterations = 3, time = 10, timeUnit = TimeUnit.MINUTES)
+    @Warmup(iterations = 0)
+    @Measurement(iterations = 1, time = 4, timeUnit = TimeUnit.MINUTES)
     @Timeout(time = 30, timeUnit = TimeUnit.MINUTES)
     @OutputTimeUnit(TimeUnit.SECONDS)
     public static abstract class AbstractIndexingBenchmark {
@@ -57,6 +57,9 @@ public class IndexingBenchmark {
         private Object lock = new Object();
         private long lastCommit = System.currentTimeMillis();
 
+        @Param({ "5", "10", "30" })
+        private int commitEvery;
+
         public abstract Directory getDirectory(final Path path) throws IOException;
 
         @Benchmark
@@ -67,7 +70,7 @@ public class IndexingBenchmark {
             long now = System.currentTimeMillis();
             final boolean commit;
             synchronized (lock) {
-                if (now - lastCommit > 60000) {
+                if (now - lastCommit > (commitEvery * 1000)) {
                     lastCommit = now;
                     commit = true;
                 } else {
@@ -76,7 +79,6 @@ public class IndexingBenchmark {
             }
 
             if (commit) {
-                System.err.println("committing");
                 result += writer.commit();
             }
             return result;
@@ -125,10 +127,10 @@ public class IndexingBenchmark {
 
     public static class FDBIndexingBenchmark extends AbstractIndexingBenchmark {
 
-        @Param({ "100", "1000", "10000", "100000" })
+        @Param({ "1000", "10000", "100000" })
         private int pageSize;
 
-        @Param({ "1", "2", "5", "10", "100" })
+        @Param({ "1", "10", "100" })
         private int pagesPerTxn;
 
         @Setup(Level.Trial)
